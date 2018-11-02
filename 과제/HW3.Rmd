@@ -1,0 +1,46 @@
+---
+title: "HW3"
+author: "1585107 이지인"
+date: "2018년 10월 29일"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+setwd("C:/Users/USER/Documents")
+hmda.data<-read.csv("hmda.csv",header=TRUE)
+head(hmda.data)
+library(lmtest)
+attach(hmda.data)
+```
+
+
+```{r cars}
+# Table 9.2.모형 (4)에서의 설명 변수중 Unemployment rate를 빼고 재분석 합니다. logit모형을 적합시키고 모형에서 오즈비 추정의 차이. 단, 다른 변수들은 모두 평균을 사용합니다. 
+
+pi_rat<-s46/100                                      # P/I ratio
+hse_inc<-s45/100                                     # housing expense-to-income ratio
+ltv<-s6/s50                                          # loan-to-value ratio
+ccred<-s43                                           # consumer credit score
+mcred<-s42                                           # mortgage credit score
+pubrec<-s44                                          # public bad credit record
+denpmi<-s53                                          # denied mortgage insurance
+selfemp<-s27a                                        # self-employed
+single<-ifelse(s23a=="U",1,0)
+hischl<-ifelse(school>=12,1,0)                       # high school diploma
+probunmp<-uria                                   # probunmp(unemployment rate)
+condo<-ifelse(s51==1,1,0)                          # condominium
+black<-ifelse(s13==3,1,0)                 
+deny<-ifelse(s7==3,1,0)
+ltv_med<-ifelse(ltv>=0.85 & ltv<0.95,1,0); ltv_high<-ifelse(ltv>=0.95,1,0)
+blk_pi<-black*pi_rat; blk_hse<-black*hse_inc
+
+mortdeny.data<-data.frame(pi_rat=pi_rat,hse_inc=hse_inc,ltv=ltv,ccred=ccred,mcred=mcred,pubrec=pubrec, denpmi=denpmi,selfemp=selfemp,single=single,hischl=hischl,probunmp=probunmp,condo=condo,black=black,deny=deny,ltv_high=ltv_high,blk_pi=blk_pi,blk_hse=blk_hse)   
+colMeans(mortdeny.data); apply(mortdeny.data,2,mean)
+
+Logit.model <- glm(deny~pi_rat+ black+ hse_inc+ ltv_med+ ltv_high+ ccred+ mcred+ pubrec+ denpmi+ selfemp+ single+ hischl, family=binomial(link="logit"),           data=mortdeny.data)
+odds<-coeftest(Logit.model)[3,1]; odds; exp(odds)
+odds_sd<-coeftest(Logit.model)[3,2]
+odds_L<-odds-1.96*odds_sd; odds_U<-odds+1.96*odds_sd
+odds_CI<-c(odds_L,odds_U); odds_CI; exp(odds_CI)
+```
+

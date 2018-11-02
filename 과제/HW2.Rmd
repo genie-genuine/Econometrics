@@ -1,0 +1,46 @@
+---
+title: "HW2"
+author: "1585107 이지인"
+date: "2018년 10월 23일"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+library(plm)
+library(lmtest)
+library(sandwich)
+setwd("C:/Users/USER/Documents")
+fatality.data<-read.csv("fatality.csv", header=TRUE)
+attach(fatality.data)
+```
+
+
+```{r cars}
+fatality.data$dk18<- ifelse(mlda==18,1,0); head(fatality.data$dk18)
+fatality.data$dk19<- ifelse(mlda==19,1,0); head(fatality.data$dk19)
+fatality.data$dk20<- ifelse(mlda==20,1,0); head(fatality.data$dk20)
+fatality.data$inc2<- (log(perinc))**2
+fatality.data$inc3<- (log(perinc))**3
+fatality.data$mjcs= ifelse(jaild==1|comserd==1,1,0); head(fatality.data$mjcs)
+
+lm.fit4<-plm(mrall~beertax + dk18+dk19+dk20 + jaild+comserd+ vmiles+ unrate+ inc2+inc3, data=fatality.data, model="within", index=c("state","year"), effect="twoways")
+coeftest(lm.fit4, vcov=vcovHC) #beertax 통계적으로 유의하지 않다.
+b1<-coeftest(lm.fit4, vcov=vcovHC)[1,1]; se_b1<-coeftest(lm.fit4, vcov=vcovHC)[1,2]
+L<- b1-1.96*se_b1; U<- b1+1.96*se_b1
+CI_lmfit4<-c(L,U); CI_lmfit4 #신뢰구간이 0을 포함하고 있음
+
+
+lm.fit6<-plm(mrall~beertax + mlda+ mjcs+ vmiles + unrate+ inc2+inc3, data=fatality.data, model="within", index=c("state","year"),effect= "twoways")
+summary(lm.fit6)
+coeftest(lm.fit6, vcov=vcovHC) #beertax 통계적으로 유의하지 않다.
+b2<-coeftest(lm.fit6, vcov=vcovHC)[1,1]; se_b2<-coeftest(lm.fit6, vcov=vcovHC)[1,2]
+LL<- b2-1.96*se_b2; UU<- b2+1.96*se_b2
+CI_lmfit6<-c(LL,UU); CI_lmfit6 #0을 포함 
+```
+
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

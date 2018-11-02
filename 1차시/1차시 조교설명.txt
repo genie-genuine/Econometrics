@@ -1,0 +1,72 @@
+#디렉토리 조회
+getwd()
+
+#데이터 불러오기 (디렉토리 생략 ~/)
+caschool<-read.csv("~/caschool.csv", header=TRUE)
+attach(caschool)
+
+#data 분포 산점도 그리기: plot(x,y) - x,y순서주의
+plot(avginc,testscr)
+
+#Simple linear regression 단순 선형 회귀: lm(종속~설명변수)
+lm.scr<-lm(testscr~avginc)
+summary(lm.scr)
+###결과해석: 
+#avginc(설명변수,x)의 p-value<0.05 
+#R-squared와 Adjusted 0.5로 보통정도의 설명력을 지닌다
+
+
+#산점도에 추정 모형 나타내기
+plot(avginc,testscr)
+abline(lm.scr, col=2)
+
+#Non-linear regression 비선형 회귀 모형 (설명변수 연결 +)
+sq.avginc<-(avginc)^2
+lm.scr2<-lm(testscr~avginc+sq.avginc)
+summary(lm.scr2)
+###결과해석: 
+#avginc과 sq.avginc 두 변수의 p-value<0.05
+#R-squared 와 adjusted 모두 0.05 증가, 적합도가 증가했음
+
+#산점도 그리기
+plot(avginc,testscr)
+points(avginc,lm.scr2$fitted.values, col=4)
+
+
+order.cas<- order(avginc)
+lines(avginc[order.cas],lm.scr2$fitted.values[order.cas],col=4)
+
+lm2.rsq<-summary(lm.scr2)$r.squared
+lm2.adj.rsq<-summary(lm.scr2)$adj.r.squared
+
+#vcov(회귀모형): 
+#Returns the variance-covariance matrix of the main parameters of a fitted model object.
+lm2.cov<-vcov(lm.scr2)
+lm2.cov
+##공분산 행렬 이용해 예측치의 표준오차 구하는 과정 궁금
+##Matrix 회귀분석 다시 보기
+
+#Standard error and confidence interval of delta Y
+#x=10->11
+delta Y= b0+b1*11+b2*11^2 -(b0+b1*10+b2*10^2)
+       = b1*(11-10)+b2*(11^2-10^2)
+       =[0 1 21] [b0 b1 b2]
+a1<-0
+a2<-1
+a3<-21
+a<-matrix(c(a1,a2,a3),nrow=3)
+coef.mat=matrix(lm.scr2$coef,ncol=1)
+delta.y<-t(a)%*%coef.mat
+delta.y
+
+#t(행렬): t returns the transpose of x.
+#행렬 곱 연산자: %*%
+#회귀분석 summary에서 필요 정보만 추출: lm.scr2$coef
+
+#method 1
+delta.y.se<-sqrt(t(a)%*%lm2.cov%*%a)
+delta.y.se
+
+#method 2
+delta.y.se2<-abs(delta.y)/sqrt(summary(lm.scr2)$fstatstic[1])
+delta.y.se2

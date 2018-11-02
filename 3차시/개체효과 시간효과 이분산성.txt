@@ -1,0 +1,96 @@
+caschool = read.csv("C:\\Users\\user\\Dropbox\\data\\caschool.csv",header=TRUE)                   #caschool file 
+attach(caschool)
+
+### Nonlinear Regression Models (Table 6.2 (6))
+HiEL = ifelse(el_pct>=10, 1, 0)
+str.sq = str^2
+str.sq3 = str^3
+log.inc = log(avginc)
+lm.fit = lm(testscr~HiEL*str+HiEL*str.sq+HiEL*str.sq3+meal_pct+log.inc)
+summary(lm.fit)
+
+### Heteroscedasticity Consistent (HC) and Heteroscedasticity and Autocorrelation Consistent (HAC) Covariance Matrix Estimation
+#install.packages("sandwich")
+library(sandwich)
+HC.est = vcovHC(lm.fit)
+HAC.est = vcovHAC(lm.fit)
+lm.est = vcov(lm.fit) #자기상관성과 등분산성 고려하지않은 covariance
+
+summary.lm = summary(lm.fit)
+summary.lm$coef[,2]
+sqrt(diag(lm.est)) #각각 회귀계수들의 standard error
+sqrt(diag(HAC.est))# 등분산성 고려
+sqrt(diag(HC.est))#자기상관까지 고려했을떄
+
+
+#lmtest 위의 코드보다 보기 쉽게 출력
+#install.packages("lmtest")
+library(lmtest)
+coeftest(lm.fit, vcov = vcovHC) #이분산성고려
+coeftest(lm.fit, vcov = vcovHAC)#자기상관,이분산성 모두 고려
+
+
+### 패널회귀 모형 
+#Sys.setlocale('LC_ALL','C')
+fatality.data<-read.csv("fatality.csv",header=TRUE) 
+
+#패널회귀 package - plm
+#install.packages("plm")                                      # Panel Data Regression Package
+library(plm)
+#install.packages("lmtest")                                    # HAC SE Package
+library(lmtest)
+
+
+### 개체 효과 모형 
+##  Fixed Effect
+lm.fixed = plm(pctmrall~beertax, data=fatality.data, model="within", 
+               index=c("state","year"), effect="individual")   
+#시간 index 
+#4'
+#n=48 T=7 N=336 패널 정확하게 만들어졌는지 확인
+
+# 개체효과모형
+summary(lm.fixed)
+coeftest(lm.fixed,vcov=vcovHC)               #이분산성 고려해서 다시 확인        
+lm.fixed.Adj.r = 1-(nrow(fatality.data)-1)/(nrow(fatality.data)-49)*sum((lm.fixed$residuals)^2)/
+  sum((fatality.data$pctmrall-mean(fatality.data$pctmrall))^2)                                        # 개체효과모형 Adj-R-squared
+lm.fixed.Adj.r
+#adjusted r squared 공식 이용해서 구하기
+
+-0.655 OLS 표준오차 0.188
+#1%에서 유의한 결과
+HC 표준오차 0.288
+#HC가 있음을 보여줌
+#48개의 주마다 분산이 동일하지 않음 주별로 오차분산이 크고 작음이 다르다 
+#패널에는 이분산성이 있는경우가 많다
+#HC고려한 lm 모형의 유의성 훨씬 낮다 *
+#이분산성을 무시하면 표준오차 과대추정되는 경우, 
+
+#패널 두개 - 더미변수 하나 
+#factor 17개
+#estimate delta 
+#첫번째 주 대비 두번째주 효과
+## Fixed Effect (Dummy) factor 안에 state
+table(fatality.data$state)
+lm.fixed2 = lm(pctmrall ~ beertax + factor(state), data=fatality.data)                                                # Dummy 변수 개체효과모형
+summary(lm.fixed2)
+coeftest(lm.fixed2, vcov=vcovHC)
+
+
+## Random Effect
+lm.random = plm(pctmrall~beertax, data=fatality.data, model="random", index=c("state","year"), effect="individual")   # 개체효과모형
+summary(lm.random)
+coeftest(lm.random,vcov=vcovHC) 
+
+### 시간 효과 모형 (One-way fixed effect over time)
+lm.time = plm(pctmrall~beertax, data=fatality.data, model="within", index=c("state","year"), effect="time")
+summary(lm.time)
+coeftest(lm.time,vcov=vcovHC)  
+
+### Two-way fixed effect (시간)
+lm.twoway = plm(pctmrall~beertax,data=fatality.data,effect="twoways",model="within",index=c("state","year"))   간
+# two way
+summary(lm.twoway)
+coeftest(lm.twoway,vcov=vcovHC)
+#주별효과 고려했을때랑 std.error가 크게 다르지 않기때문에 
+주별효과 고려가 중요함을 알 수 있다.

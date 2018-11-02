@@ -1,0 +1,77 @@
+
+caschool = read.csv("~/Dropbox/data/caschool.csv",header=TRUE)                   #caschool file 
+attach(caschool)
+
+plot(avginc, testscr)
+
+### Simple linear regression
+lm.scr = lm(testscr~avginc)                                 # simple linear regression 
+summary(lm.scr)                                             # summary simple linear regression 
+plot(avginc, testscr)
+abline(lm.scr, col=2)     
+
+
+
+### Non-linear regression 
+sq.avginc = (avginc)^2 
+lm.scr2 = lm(testscr~avginc+sq.avginc)                       # non-linear regression 
+summary(lm.scr2)                                             # summary linear regression (ttest)
+
+plot(avginc, testscr)
+points(avginc, lm.scr2$fitted.values, col=4)
+order.cas = order(avginc)
+lines(avginc[order.cas], lm.scr2$fitted.values[order.cas], col=4)
+
+lm2.rsq = summary(lm.scr2)$r.squared                          # non-linear regression R-square 
+lm2.adj.rsq = summary(lm.scr2)$adj.r.squared                  # non-linear regression adj-R-square 
+lm2.cov = vcov(lm.scr2)                                       # non-linear regression covariance of coefficient 
+lm2.cov
+
+
+
+## Standard error and confidence interval of delta Y 
+
+# delta Y = bo + b1*11 + b2*11^2 - b0 - b1*10 - b2*10^2
+#         = b1*(11-10) + b2*(11^2-10^2)
+#         = [0 1 21] [b0 b1 b2]'
+a1 = 0; a2 = 1; a3 = 21 
+a = matrix(c(a1,a2,a3),nrow=3) 
+coef.mat = matrix(lm.scr2$coef, ncol=1)
+delta.y = t(a)%*%coef.mat
+delta.y
+
+
+# method 1 : standard error of delta Y
+delta.y.se = sqrt(t(a) %*% lm2.cov %*% a)    
+delta.y.se
+
+# method 2 : standard error of delta Y 
+delta.y.se2 = abs(delta.y)/sqrt(summary(lm.scr2)$fstatistic[1])
+delta.y.se2
+
+
+upper.delta.y = delta.y+1.96*delta.y.se             # upper confidence limit of delta Y 
+lower.delta.y = delta.y-1.96*delta.y.se             # lower confidence limit of delta 
+upper.delta.y
+lower.delta.y
+
+
+### AIC 
+# AIC = n log(SSR/n) + 2p
+extractAIC(lm.scr2)[2]                                             # AIC 
+
+n = nrow(caschool)                                                 # caschool 자료의 수  
+p = 3                                                              # 회귀모형의 추정모수 수  
+AIC.caschool = n*log(sum(lm.scr2$residuals^2)/n)+2*p 
+AIC.caschool
+
+#Data 
+new.data = cbind(avginc, avginc^2, avginc^3, avginc^4, avginc^5)
+AIC.lm = c()
+
+for(i in 1:ncol(new.data)){
+  lm.fit = lm(testscr~new.data[,1:i])
+  AIC.lm[i] = extractAIC(lm.fit)[2]
+}
+
+plot(AIC.lm, type="b", pch = 19)
