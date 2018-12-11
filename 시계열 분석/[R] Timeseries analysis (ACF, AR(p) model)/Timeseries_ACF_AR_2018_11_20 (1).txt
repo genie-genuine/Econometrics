@@ -1,0 +1,90 @@
+setwd("C:\\Users\\user\\Dropbox\\data")
+cpi.data<-read.csv("CPI.csv",header=TRUE)
+head(cpi.data)
+CPI.value  = cpi.data$CPI
+
+## Make data
+#Inf = (cpi(t)-cpi(t-1))/(cpi(t-1))*100*4, t = 2,...,T
+cpi_t = cpi.data$CPI[2:nrow(cpi.data)]
+cpi_t_1 = cpi.data$CPI[1:(nrow(cpi.data)-1)]
+Inf.value = 4*100*(cpi_t-cpi_t_1)/cpi_t_1
+
+#Inf = (log(cpi(t))-log(cpi(t-1)))*4*100, t = 2,...,T
+Inf.value1 = 4*100*(log(cpi_t)-log(cpi_t_1))                          #log cpi(t)-log cpi(t-1)*100*4
+
+plot(Inf.value, type = "l")
+lines(Inf.value1, col=2, lty =2)
+
+head(Inf.value)
+head(Inf.value1)
+
+#y.t : change in inflation (delta Inf(t) = Inf(t) - Inf(t-1), t = 2,...,T)
+Inf_t = Inf.value[2:length(Inf.value)]
+Inf_t_1 = Inf.value[1:(length(Inf.value)-1)]
+y.t = Inf_t - Inf_t_1
+y.t0 = diff(Inf.value)                                                # delta inflation (인플레이션 차분 값)
+
+
+## Time series plot
+par(mfrow = c(1,3))
+plot(CPI.value, type = "l", xlab = " ", ylab = " ", main = "Customer Price Index (CPI)")
+plot(Inf.value, type = "l", xlab = " ", ylab = " ", main = "Inflation" )
+plot(y.t, type = "l", xlab = " ", ylab = " ", main = expression(paste(Delta, "Inflation", "(", y[t],")"))) 
+
+
+## SACF = corr(y(t), y(t-k)), k=Lag
+CPI.acf = acf(CPI.value)
+Inf.acf = acf(Inf.value)
+y.acf = acf(y.t,lag.max =20)
+
+gamma.j = c(); rho.j=c()
+gamma.0 = var(y.t)
+y.bar = mean(y.t)
+T = length(y.t)
+
+for(j in 1:20){
+  y_t = y.t[1:(T-j)]
+  y_t_j = y.t[(j+1):T]
+  gamma.j[j] = 1/T*sum((y_t-y.bar)*(y_t_j-y.bar))
+  rho.j[j] = gamma.j[j]/gamma.0
+}
+rho.j = c(1, rho.j)
+plot(rho.j, type = "h", ylim = c(-0.3, 1.0), xlab = "Lag", ylab = "ACF")
+abline(h = 2/sqrt(T), col=4, lty = 2)
+abline(h = -2/sqrt(T), col=4, lty = 2)
+abline(h = 0, col=1)
+
+
+## AR(p) model
+
+# AR(1) : (y(t)-mu) = phi*(y(t-1)-mu) + a(t)
+#         y(t) = phi0 + phi1*y(t-1) + a(t)
+
+library(forecast)
+ar.fit1   = arima(y.t, order = c(1,0,0))
+ar.fit1.m = Arima(y.t, order = c(1,0,0))
+ar.fit1.c = ar.ols(y.t, order=1, demean=F, intercept=T)
+
+ar.fit1
+ar.fit1.m
+ar.fit1.c
+
+lm(y.t[2:length(y.t)]~y.t[1:(length(y.t)-1)])
+
+acf(ar.fit1$residuals)
+
+
+# AR(3) : (y(t)-mu) = phi1*(y(t-1)-mu)+ phi2*(y(t-2)-mu)+ phi3*(y(t-3)-mu) + a(t)
+#         y(t) = phi0 + phi1*y(t-1) + phi2*y(t-2) + phi3*y(t-3) + a(t)
+ar.fit3 = Arima(y.t, order = c(3,0,0))
+ar.fit3
+acf(ar.fit3$residuals)
+
+
+## AR(1) forecast : y(t+1) = mu + phi*(y(t)-mu)
+ar.fit1.m = Arima(y.t, order = c(1,0,0))
+forecast(ar.fit1.m, h=1)
+
+mu = ar.fit1.m$coef[2]
+phi = ar.fit1.m$coef[1]
+mu + phi*(y.t[length(y.t)]-mu)

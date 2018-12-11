@@ -1,0 +1,128 @@
+---
+title: "HW4"
+author: "1585107 이지인"
+date: "2018년 11월 15일"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+```
+
+```{r cars}
+ciga<-read.csv("ciga.csv")
+head(ciga)
+#install.packages("AER")
+library(AER); library(lmtest)
+attach(ciga)
+rtaxso=taxs/cpi - tax/cpi #sale tax 판매세 (도구변수1, 모형1)
+rtax=tax/cpi #ciga tax 담배세 (도구변수2, 모형2)
+perinc=income/pop/cpi #real per capita state income 소득 (외생변수-도구변수 필요없음)
+log.q=log(packpc[year==1995])-log(packpc[year==1985])
+log.p=log(avgprs[year==1995])-log(avgprs[year==1985])
+log.inc=log(perinc[year==1995])-log(perinc[year==1985])
+cigatax=rtax[year==1995]-rtax[year==1985]
+saletax=rtaxso[year==1995]-rtaxso[year==1985]
+
+#model(1)
+#도구회귀(도구변수1개): 담배수요q~가격p+소득inc | 도구변수 z1 saletax
+ivreg.fit1=ivreg(log.q~log.p+log.inc | saletax+log.inc)
+summary(ivreg.fit1)
+coeftest(ivreg.fit1, vcov=vcovHC) #이분산성 고려
+
+#1st stage: 
+#(내생설명변수 X) 가격log.p 를 
+#(외생설명변수 W) 소득 log.inc 와 (한개의 도구변수 z1) 판매세saletax 회귀시켜
+#xhat을 구한다.
+lm.fit1.first=lm(log.p ~ log.inc + saletax)
+summary_lm.fit1<-summary(lm.fit1.first); summary_lm.fit1
+summary_lm.fit1$fstatistic[1] >10 
+#model(1)의 도구변수 관련성 검정
+#검정 결과, 내생설명변수가 1개일 때, F 통계량이 10보다 크므로 내생설명변수X인 담배 가격과 연관성을 지닌다고 볼 수 있다. 도구변수 관련성 가정을 만족한다.
+#model(1)은 한 개의 내생설명변수, 한 개의 도구변수를 사용하므로 m=k exactly identified case로 J검정을 통한 도구변수 외생성을 검증할 수 없다
+
+#2nd stage: 
+#(종속변수 Y) 수요 log.q를
+#(1st stage를 통해 구한 추정치) Xhat과 (외생설명변수 W) 소득 log.inc에 회귀시켜
+#TSLSE를 구한다.
+log.p.hat1=lm.fit1.first$fitted.value
+lm.fit1.second=lm(log.q ~ log.p.hat1 + log.inc)
+summary(lm.fit1.second)
+
+
+######
+#model(2)
+#도구회귀(도구변수1개): 담배수요q~가격p+소득inc | 도구변수 z2 cigatax
+ivreg.fit2=ivreg(log.q ~ log.p+log.inc| cigatax+log.inc)
+summary(ivreg.fit2)
+coeftest(ivreg.fit2, vcov=vcovHC) #이분산성 고려
+
+#1st stage: 
+#(내생설명변수 X) 가격log.p 를 
+#(외생설명변수 W) 소득 log.inc 와 (한개의 도구변수 z2) 담배세 cigatax 회귀시켜
+#xhat을 구한다.
+lm.fit2.first=lm(log.p ~ log.inc + cigatax)
+summary_lm.fit2<-summary(lm.fit2.first); summary_lm.fit2
+summary_lm.fit2$fstatistic[1] >10 
+#model(2)의 도구변수 관련성 검정
+#검정 결과, 내생설명변수가 1개일 때, F 통계량이 10보다 크므로 내생설명변수X인 담배 가격과 연관성을 지닌다고 볼 수 있다. 
+#도구변수 관련성 가정을 만족한다.
+#model(2)은 한 개의 내생설명변수, 한 개의 도구변수를 사용하므로 m=k exactly identified case로 J검정을 통한 도구변수 외생성을 검증할 수 없다
+
+#2nd stage: 
+#(종속변수 Y) 수요 log.q를
+#(1st stage를 통해 구한 추정치) Xhat과 (외생설명변수 W) 소득 log.inc에 회귀시켜
+#TSLSE를 구한다.
+log.p.hat2=lm.fit2.first$fitted.value
+lm.fit2.second=lm(log.q ~ log.p.hat2 + log.inc)
+summary(lm.fit2.second)
+
+
+
+#####
+#model(3)
+#도구회귀(도구변수2개): 담배수요q~가격p+소득inc | 도구변수 z1 z2
+ivreg.fit3=ivreg(log.q ~ log.p + log.inc| saletax+cigatax+log.inc)
+summary(ivreg.fit3)
+coef.ivreg.fit3<-coeftest(ivreg.fit3, vcov=vcovHC); coef.ivreg.fit3
+
+#도구변수 외생성 검정
+#model(3)은 한 개의 내생설명변수, 두 개의 도구변수를 사용하므로 m>k overidentified case로 J검정을 통한 도구변수 외생성을 검증할 수 있다.
+#unknown인 u대신 uhat 도구회귀분석의 잔차를 이용
+#uhat=Y-ahat(TSLSE)-b1(TSLSE)*X-b2(TSLSE)*W
+uhat=log.q-coef.ivreg.fit3[1,1]-(coef.ivreg.fit3[2,1]*log.p)-coef.ivreg.fit3[3,1]*log.inc
+iv.exogeniety<-lm(uhat~saletax+cigatax+log.inc); 
+summary_iv.exogeniety<-summary(iv.exogeniety); summary_iv.exogeniety
+iv.F<-summary_iv.exogeniety$fstatistic[1]; iv.F
+#도구변수 z1과 z2가 모두 외생이라는 귀무가설하
+#J=m*F는 자유도(m-k)인 카이제곱분포를 따른다.
+J<-2*iv.F; J
+1-pchisq(J, df=2-1)
+1-pchisq(J, df=2-1)<0.05 
+#p-value가 0.05보다 크므로 귀무가설을 기각할 수 없다, do not reject H0
+#도구변수 z1 판매세와 z2 담배세 모두 도구변수 외생성을 만족한다고 할 수 있다.
+
+#1st stage: 
+#(내생설명변수 X) 가격log.p 를 
+#(외생설명변수 W) 소득 log.inc 와 (두 개의 도구변수 z1,z2) 판매세 saletax와 담배세 cigatax 회귀시켜
+#xhat을 구한다.
+lm.fit3.first=lm(log.p ~ log.inc + saletax + cigatax)
+summary_lm.fit3<-summary(lm.fit2.first); summary_lm.fit3
+summary_lm.fit3$fstatistic[1] >10 #도구변수 관련성 검정
+#model(2)의 도구변수 관련성 검정
+#검정 결과, 내생설명변수가 1개일 때, F 통계량이 10보다 크므로 내생설명변수X인 담배 가격과 연관성을 지닌다고 볼 수 있다. 
+#도구변수 관련성 가정을 만족한다.
+
+#2nd stage: 
+#(종속변수 Y) 수요 log.q를
+#(1st stage를 통해 구한 추정치) Xhat과 (외생설명변수 W) 소득 log.inc에 회귀시켜
+#TSLSE를 구한다.
+log.p.hat3=lm.fit3.first$fitted.value
+lm.fit3.second=lm(log.q ~ log.p.hat3 + log.inc)
+summary(lm.fit3.second)
+
+
+```
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
